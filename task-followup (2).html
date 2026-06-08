@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Follow-Up</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1a2b4a; --navy-light: #2c4270; --accent: #2563eb;
+    --bg: #f4f6fb; --surface: #ffffff; --border: #e2e8f0;
+    --text: #1e293b; --muted: #64748b;
+    --success: #16a34a; --warning: #d97706; --danger: #dc2626;
+    --radius: 10px; --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* AUTH */
+  #auth-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#1a2b4a 0%,#2c4270 50%,#8B0000 100%); }
+  .auth-card { background:white; border-radius:16px; padding:2.5rem 2rem; width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+  .auth-logo { text-align:center; margin-bottom:2rem; }
+  .auth-logo h1 { font-size:22px; font-weight:700; color:var(--navy); }
+  .auth-logo p { font-size:13px; color:var(--muted); margin-top:4px; }
+  .auth-card label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.05em; }
+  .auth-card input, .auth-card select { width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:15px; outline:none; margin-bottom:1rem; }
+  .auth-card input:focus, .auth-card select:focus { border-color:var(--accent); }
+  .btn-primary { width:100%; padding:12px; background:var(--navy); color:white; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn-primary:hover { background:var(--navy-light); }
+  #auth-error { color:var(--danger); font-size:13px; text-align:center; margin-top:10px; display:none; }
+
+  /* APP */
+  #app { display:none; min-height:100vh; flex-direction:column; }
+  header { background:var(--navy); color:white; padding:0 1.5rem; height:58px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+  .header-logo { font-size:16px; font-weight:700; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .user-badge { background:rgba(255,255,255,0.15); border-radius:20px; padding:4px 12px 4px 8px; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .avatar { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:white; flex-shrink:0; }
+  .btn-hdr { background:rgba(255,255,255,0.1); border:none; color:white; padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .btn-hdr:hover { background:rgba(255,255,255,0.2); }
+
+  /* TABS */
+  .tabs { background:white; border-bottom:1px solid var(--border); padding:0 1.5rem; display:flex; overflow-x:auto; }
+  .tab { padding:14px 18px; font-size:14px; font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2.5px solid transparent; white-space:nowrap; transition:all .15s; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--navy); border-bottom-color:var(--navy); font-weight:600; }
+  .badge-count { display:inline-block; background:var(--danger); color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:5px; }
+
+  /* MAIN */
+  main { flex:1; padding:1.5rem; max-width:1100px; margin:0 auto; width:100%; }
+
+  /* STATS */
+  .stats-bar { display:flex; gap:12px; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .stat-card { background:white; border:1px solid var(--border); border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; flex:1; min-width:110px; }
+  .stat-icon { font-size:20px; }
+  .stat-label { font-size:12px; color:var(--muted); }
+  .stat-value { font-size:20px; font-weight:700; color:var(--navy); line-height:1; }
+
+  /* TOOLBAR */
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .toolbar input[type="text"] { flex:1; min-width:160px; padding:9px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; outline:none; }
+  .toolbar input:focus { border-color:var(--accent); }
+  .toolbar select { padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; outline:none; color:var(--text); background:white; }
+  .btn-add { background:var(--accent); color:white; border:none; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .btn-add:hover { background:#1d4ed8; }
+
+  /* TASK CARDS */
+  .tasks-grid { display:flex; flex-direction:column; gap:10px; }
+  .task-card { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); padding:1rem 1.25rem; box-shadow:var(--shadow); transition:box-shadow .15s; animation:fadeIn .2s ease; }
+  .task-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .task-card.done { opacity:.6; }
+  .task-card.done .task-title { text-decoration:line-through; color:var(--muted); }
+  .task-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:6px; }
+  .task-check { width:20px; height:20px; border-radius:50%; border:2px solid var(--border); cursor:pointer; flex-shrink:0; margin-top:2px; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+  .task-check:hover { border-color:var(--success); }
+  .task-check.checked { background:var(--success); border-color:var(--success); }
+  .task-check.checked::after { content:'✓'; color:white; font-size:11px; font-weight:700; }
+  .task-body { flex:1; min-width:0; }
+  .task-title { font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .task-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pill { padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .pill-high{background:#fee2e2;color:#991b1b} .pill-medium{background:#fef3c7;color:#92400e} .pill-low{background:#dcfce7;color:#166534}
+  .pill-todo{background:#f1f5f9;color:#475569} .pill-inprogress{background:#dbeafe;color:#1e40af} .pill-done{background:#dcfce7;color:#166534}
+  .task-assignee { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); }
+  .task-assignee .avatar { width:20px; height:20px; font-size:9px; }
+  .due-date { font-size:12px; color:var(--muted); }
+  .due-date.overdue { color:var(--danger); font-weight:600; }
+  .task-actions { display:flex; gap:6px; margin-left:auto; flex-shrink:0; }
+  .btn-icon { background:none; border:1px solid var(--border); border-radius:6px; padding:5px 9px; cursor:pointer; font-size:13px; color:var(--muted); transition:all .15s; }
+  .btn-icon:hover { background:var(--bg); color:var(--text); }
+  .btn-icon.danger:hover { background:#fee2e2; color:var(--danger); border-color:#fca5a5; }
+
+  /* COMMENTS */
+  .task-comments { margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
+  .comment { display:flex; gap:8px; margin-bottom:8px; }
+  .comment .avatar { width:24px; height:24px; font-size:9px; }
+  .comment-bubble { background:var(--bg); border-radius:8px; padding:6px 10px; font-size:13px; color:var(--text); flex:1; }
+  .comment-meta { font-size:11px; color:var(--muted); margin-bottom:2px; }
+  .comment-input-row { display:flex; gap:8px; margin-top:6px; }
+  .comment-input { flex:1; padding:7px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; outline:none; }
+  .comment-input:focus { border-color:var(--accent); }
+  .btn-comment { background:var(--navy); color:white; border:none; border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+
+  /* TEAM PAGE */
+  .team-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+  .team-card { background:white; border:1px solid var(--border); border-radius:12px; padding:1.25rem; display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; box-shadow:var(--shadow); }
+  .team-card .big-avatar { width:56px; height:56px; border-radius:50%; font-size:18px; font-weight:700; color:white; display:flex; align-items:center; justify-content:center; }
+  .team-card .member-name { font-size:15px; font-weight:600; }
+  .team-card .member-role { font-size:12px; color:var(--muted); }
+  .team-card .member-pin { font-size:12px; color:var(--muted); letter-spacing:2px; }
+  .team-card-actions { display:flex; gap:6px; margin-top:4px; }
+  .add-member-card { background:white; border:2px dashed var(--border); border-radius:12px; padding:1.25rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; min-height:160px; transition:border-color .15s; }
+  .add-member-card:hover { border-color:var(--accent); }
+  .add-member-card .plus { font-size:28px; color:var(--muted); }
+  .add-member-card span { font-size:14px; color:var(--muted); }
+  .admin-only { font-size:11px; color:var(--warning); background:#fef3c7; padding:2px 8px; border-radius:10px; margin-bottom:8px; display:inline-block; }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+  .modal { background:white; border-radius:14px; padding:1.75rem; width:100%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.2); animation:modalIn .2s ease; }
+  @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+  .modal h2 { font-size:18px; font-weight:700; margin-bottom:1.25rem; color:var(--navy); }
+  .modal label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em; }
+  .modal input, .modal select, .modal textarea { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; outline:none; margin-bottom:1rem; font-family:inherit; }
+  .modal input:focus, .modal select:focus, .modal textarea:focus { border-color:var(--accent); }
+  .modal textarea { resize:vertical; min-height:70px; }
+  .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:.5rem; }
+  .btn-cancel { padding:10px 20px; border:1.5px solid var(--border); border-radius:8px; background:white; font-size:14px; cursor:pointer; font-weight:500; }
+  .btn-cancel:hover { background:var(--bg); }
+  .btn-save { padding:10px 22px; background:var(--accent); color:white; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn-save:hover { background:#1d4ed8; }
+  .color-picker-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; }
+  .color-dot { width:28px; height:28px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:border-color .15s; }
+  .color-dot.selected { border-color:var(--text); }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+  .empty-state .icon { font-size:48px; margin-bottom:1rem; }
+  .empty-state h3 { font-size:16px; font-weight:600; margin-bottom:6px; color:var(--text); }
+
+  .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin:3rem auto; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>📋 Task Follow-Up</h1>
+      <p>Cups & Labels · E Fatoura</p>
+    </div>
+    <label>Your Name</label>
+    <select id="auth-user"><option value="">— Loading team... —</option></select>
+    <label>PIN</label>
+    <input type="password" id="auth-pin" placeholder="Enter your PIN" maxlength="6" onkeydown="if(event.key==='Enter') login()" />
+    <button class="btn-primary" onclick="login()">Sign In →</button>
+    <div id="auth-error">Incorrect PIN. Please try again.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="header-logo">📋 Task Follow-Up</div>
+    <div class="header-right">
+      <div class="user-badge">
+        <div class="avatar" id="header-avatar">KH</div>
+        <span id="header-name">Khaled</span>
+      </div>
+      <button class="btn-hdr" onclick="logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('all')" id="tab-all">All Tasks</div>
+    <div class="tab" onclick="switchTab('mine')" id="tab-mine">My Tasks <span class="badge-count" id="mine-count" style="display:none">0</span></div>
+    <div class="tab" onclick="switchTab('overdue')" id="tab-overdue">Overdue <span class="badge-count" id="overdue-count" style="display:none">0</span></div>
+    <div class="tab" onclick="switchTab('team')" id="tab-team">👥 Team</div>
+  </div>
+
+  <main>
+    <!-- TASKS VIEW -->
+    <div id="view-tasks">
+      <div class="stats-bar" id="stats-bar"></div>
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="🔍  Search tasks..." oninput="renderTasks()" />
+        <select id="filter-status" onchange="renderTasks()">
+          <option value="">All Statuses</option>
+          <option value="todo">To Do</option>
+          <option value="inprogress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+        <select id="filter-priority" onchange="renderTasks()">
+          <option value="">All Priorities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select id="filter-assignee" onchange="renderTasks()"><option value="">All Assignees</option></select>
+        <button class="btn-add" onclick="openTaskModal()">+ New Task</button>
+      </div>
+      <div id="tasks-container"><div class="spinner"></div></div>
+    </div>
+
+    <!-- TEAM VIEW -->
+    <div id="view-team" style="display:none">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+        <div>
+          <h2 style="font-size:18px; font-weight:700; color:var(--navy);">Team Members</h2>
+          <p style="font-size:13px; color:var(--muted); margin-top:2px;">Manage who can access and be assigned tasks</p>
+        </div>
+        <span class="admin-only" id="admin-label" style="display:none">⚙️ Admin: Khaled only</span>
+      </div>
+      <div class="team-grid" id="team-grid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- TASK MODAL -->
+<div class="modal-overlay" id="task-modal" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title">New Task</h2>
+    <input type="hidden" id="modal-task-id" />
+    <label>Task Title *</label>
+    <input type="text" id="modal-task-title" placeholder="What needs to be done?" />
+    <label>Description</label>
+    <textarea id="modal-desc" placeholder="Optional details..."></textarea>
+    <label>Assign To *</label>
+    <select id="modal-assignee"></select>
+    <label>Priority</label>
+    <select id="modal-priority">
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+      <option value="low">Low</option>
+    </select>
+    <label>Status</label>
+    <select id="modal-status">
+      <option value="todo">To Do</option>
+      <option value="inprogress">In Progress</option>
+      <option value="done">Done</option>
+    </select>
+    <label>Due Date</label>
+    <input type="date" id="modal-due" />
+    <label>Notes / Updates</label>
+    <textarea id="modal-notes" placeholder="Add progress updates, blockers, or any notes..."></textarea>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMBER MODAL -->
+<div class="modal-overlay" id="member-modal" style="display:none">
+  <div class="modal">
+    <h2 id="member-modal-title">Add Team Member</h2>
+    <input type="hidden" id="member-modal-id" />
+    <label>Full Name *</label>
+    <input type="text" id="member-name" placeholder="e.g. Ahmed Al-Rashid" />
+    <label>Role / Title</label>
+    <input type="text" id="member-role" placeholder="e.g. Production Manager" />
+    <label>PIN (numbers only) *</label>
+    <input type="password" id="member-pin" placeholder="4–6 digit PIN" maxlength="6" />
+    <label>Avatar Color</label>
+    <div class="color-picker-row" id="color-picker"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeMemberModal()">Cancel</button>
+      <button class="btn-save" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDemoKeyReplaceWithActual",
+  authDomain: "cups-and-labels.firebaseapp.com",
+  databaseURL: "https://cups-and-labels-default-rtdb.firebaseio.com",
+  projectId: "cups-and-labels",
+  storageBucket: "cups-and-labels.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:0000000000000000"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const TASKS_REF = db.ref('taskfollowup/tasks');
+const TEAM_REF  = db.ref('taskfollowup/team');
+
+const ADMIN_NAME = 'Khaled';
+const COLORS = ['#1a2b4a','#2563eb','#8B0000','#16a34a','#d97706','#7c3aed','#0891b2','#db2777','#64748b','#ea580c'];
+
+let currentUser = null;
+let allTasks = {};
+let allMembers = {};
+let currentTab = 'all';
+let expandedTasks = new Set();
+let selectedColor = COLORS[0];
+let editingMemberId = null;
+
+// ── AUTH ──────────────────────────────────────────────
+function populateAuthSelect() {
+  const sel = document.getElementById('auth-user');
+  const names = Object.values(allMembers).map(m => m.name).sort();
+  sel.innerHTML = '<option value="">— Select your name —</option>' +
+    names.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function login() {
+  const name = document.getElementById('auth-user').value;
+  const pin  = document.getElementById('auth-pin').value;
+  if (!name) return;
+  const member = Object.values(allMembers).find(m => m.name === name);
+  if (!member || member.pin !== pin) {
+    const el = document.getElementById('auth-error');
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+    return;
+  }
+  currentUser = name;
+  localStorage.setItem('taskapp_user', name);
+  startApp();
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('taskapp_user');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('auth-pin').value = '';
+}
+
+function startApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  const m = Object.values(allMembers).find(x => x.name === currentUser) || {};
+  document.getElementById('header-avatar').textContent = initials(currentUser);
+  document.getElementById('header-avatar').style.background = m.color || '#1a2b4a';
+  document.getElementById('header-name').textContent = currentUser;
+  renderTasks();
+  updateStats();
+  updateBadges();
+}
+
+// ── FIREBASE LISTENERS ────────────────────────────────
+TEAM_REF.on('value', snap => {
+  allMembers = snap.val() || {};
+
+  // Seed Khaled if team is empty
+  if (Object.keys(allMembers).length === 0) {
+    const ref = TEAM_REF.push();
+    ref.set({ name: 'Khaled', role: 'Admin', pin: '1234', color: '#1a2b4a' });
+    return;
+  }
+
+  populateAuthSelect();
+  renderTeam();
+  renderTasks(); // refresh assignee dropdowns
+});
+
+TASKS_REF.on('value', snap => {
+  allTasks = snap.val() || {};
+  renderTasks();
+  updateStats();
+  updateBadges();
+});
+
+window.onload = () => {
+  buildColorPicker();
+  const saved = localStorage.getItem('taskapp_user');
+  if (saved) {
+    // Wait for team to load
+    const check = setInterval(() => {
+      const m = Object.values(allMembers).find(x => x.name === saved);
+      if (m) {
+        clearInterval(check);
+        currentUser = saved;
+        startApp();
+      }
+    }, 200);
+  }
+};
+
+// ── TASKS ─────────────────────────────────────────────
+function saveTask() {
+  const title = document.getElementById('modal-task-title').value.trim();
+  if (!title) { alert('Please enter a task title.'); return; }
+  const id = document.getElementById('modal-task-id').value;
+  const task = {
+    title,
+    description: document.getElementById('modal-desc').value.trim(),
+    notes:       document.getElementById('modal-notes').value.trim(),
+    assignee:    document.getElementById('modal-assignee').value,
+    priority:    document.getElementById('modal-priority').value,
+    status:      document.getElementById('modal-status').value,
+    dueDate:     document.getElementById('modal-due').value,
+    createdBy:   currentUser,
+    updatedAt:   Date.now(),
+    comments:    id && allTasks[id] ? (allTasks[id].comments || {}) : {}
+  };
+  if (!id) task.createdAt = Date.now();
+  const ref = id ? TASKS_REF.child(id) : TASKS_REF.push();
+  ref.set(task);
+  closeTaskModal();
+}
+
+function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  TASKS_REF.child(id).remove();
+}
+
+function toggleStatus(id) {
+  const t = allTasks[id]; if (!t) return;
+  TASKS_REF.child(id).update({ status: t.status === 'done' ? 'todo' : 'done', updatedAt: Date.now() });
+}
+
+function addComment(id) {
+  const input = document.getElementById('comment-input-' + id);
+  const text = input.value.trim(); if (!text) return;
+  TASKS_REF.child(id + '/comments').push().set({ text, author: currentUser, time: Date.now() });
+  input.value = '';
+}
+
+function openTaskModal(id) {
+  const members = Object.values(allMembers).map(m => m.name).sort();
+  document.getElementById('modal-assignee').innerHTML = members.map(n =>
+    `<option value="${n}">${n}</option>`).join('');
+
+  if (id) {
+    const t = allTasks[id];
+    document.getElementById('modal-title').textContent = 'Edit Task';
+    document.getElementById('modal-task-id').value = id;
+    document.getElementById('modal-task-title').value = t.title || '';
+    document.getElementById('modal-desc').value = t.description || '';
+    document.getElementById('modal-notes').value = t.notes || '';
+    document.getElementById('modal-assignee').value = t.assignee || currentUser;
+    document.getElementById('modal-priority').value = t.priority || 'medium';
+    document.getElementById('modal-status').value = t.status || 'todo';
+    document.getElementById('modal-due').value = t.dueDate || '';
+  } else {
+    document.getElementById('modal-title').textContent = 'New Task';
+    document.getElementById('modal-task-id').value = '';
+    document.getElementById('modal-task-title').value = '';
+    document.getElementById('modal-desc').value = '';
+    document.getElementById('modal-notes').value = '';
+    document.getElementById('modal-assignee').value = currentUser;
+    document.getElementById('modal-priority').value = 'medium';
+    document.getElementById('modal-status').value = 'todo';
+    document.getElementById('modal-due').value = '';
+  }
+  document.getElementById('task-modal').style.display = 'flex';
+}
+
+function closeTaskModal() { document.getElementById('task-modal').style.display = 'none'; }
+document.getElementById('task-modal').addEventListener('click', e => { if (e.target === document.getElementById('task-modal')) closeTaskModal(); });
+
+// ── TEAM MANAGEMENT ───────────────────────────────────
+function buildColorPicker() {
+  const row = document.getElementById('color-picker');
+  row.innerHTML = COLORS.map(c =>
+    `<div class="color-dot ${c===selectedColor?'selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
+  ).join('');
+}
+
+function selectColor(c) {
+  selectedColor = c;
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.toggle('selected', d.style.background === c || d.style.backgroundColor === c));
+}
+
+function openMemberModal(id) {
+  if (currentUser !== ADMIN_NAME) { alert('Only ' + ADMIN_NAME + ' can manage team members.'); return; }
+  editingMemberId = id || null;
+  if (id) {
+    const m = allMembers[id];
+    document.getElementById('member-modal-title').textContent = 'Edit Member';
+    document.getElementById('member-modal-id').value = id;
+    document.getElementById('member-name').value = m.name || '';
+    document.getElementById('member-role').value = m.role || '';
+    document.getElementById('member-pin').value = m.pin || '';
+    selectedColor = m.color || COLORS[0];
+  } else {
+    document.getElementById('member-modal-title').textContent = 'Add Team Member';
+    document.getElementById('member-modal-id').value = '';
+    document.getElementById('member-name').value = '';
+    document.getElementById('member-role').value = '';
+    document.getElementById('member-pin').value = '';
+    selectedColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+  }
+  buildColorPicker();
+  document.getElementById('member-modal').style.display = 'flex';
+}
+
+function closeMemberModal() { document.getElementById('member-modal').style.display = 'none'; }
+document.getElementById('member-modal').addEventListener('click', e => { if (e.target === document.getElementById('member-modal')) closeMemberModal(); });
+
+function saveMember() {
+  const name = document.getElementById('member-name').value.trim();
+  const pin  = document.getElementById('member-pin').value.trim();
+  if (!name || !pin) { alert('Name and PIN are required.'); return; }
+  if (!/^\d{4,6}$/.test(pin)) { alert('PIN must be 4–6 digits.'); return; }
+
+  const data = {
+    name,
+    role:  document.getElementById('member-role').value.trim(),
+    pin,
+    color: selectedColor
+  };
+
+  const id = document.getElementById('member-modal-id').value;
+  const ref = id ? TEAM_REF.child(id) : TEAM_REF.push();
+  ref.set(data);
+  closeMemberModal();
+}
+
+function deleteMember(id) {
+  if (currentUser !== ADMIN_NAME) { alert('Only ' + ADMIN_NAME + ' can delete members.'); return; }
+  const m = allMembers[id];
+  if (m && m.name === ADMIN_NAME) { alert('Cannot delete the admin account.'); return; }
+  if (!confirm('Remove ' + (m ? m.name : 'this member') + ' from the team?')) return;
+  TEAM_REF.child(id).remove();
+}
+
+function renderTeam() {
+  const grid = document.getElementById('team-grid');
+  const isAdmin = currentUser === ADMIN_NAME;
+  document.getElementById('admin-label').style.display = isAdmin ? 'inline-block' : 'none';
+
+  const members = Object.entries(allMembers);
+  grid.innerHTML = members.map(([id, m]) => `
+    <div class="team-card">
+      <div class="big-avatar" style="background:${m.color||'#888'}">${initials(m.name)}</div>
+      <div class="member-name">${escHtml(m.name)}</div>
+      <div class="member-role">${escHtml(m.role||'Team Member')}</div>
+      <div class="member-pin">PIN: ${'•'.repeat((m.pin||'').length)}</div>
+      ${isAdmin ? `<div class="team-card-actions">
+        <button class="btn-icon" onclick="openMemberModal('${id}')">✏️ Edit</button>
+        ${m.name !== ADMIN_NAME ? `<button class="btn-icon danger" onclick="deleteMember('${id}')">🗑️</button>` : ''}
+      </div>` : ''}
+    </div>
+  `).join('') + (isAdmin ? `
+    <div class="add-member-card" onclick="openMemberModal()">
+      <div class="plus">＋</div>
+      <span>Add Team Member</span>
+    </div>` : '');
+}
+
+// ── TABS ──────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ['all','mine','overdue','team'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t===tab));
+  document.getElementById('view-tasks').style.display = tab === 'team' ? 'none' : 'block';
+  document.getElementById('view-team').style.display  = tab === 'team' ? 'block' : 'none';
+  if (tab === 'team') renderTeam();
+  else renderTasks();
+}
+
+// ── RENDER TASKS ──────────────────────────────────────
+function renderTasks() {
+  if (!currentUser) return;
+  const search  = (document.getElementById('search-input')||{value:''}).value.toLowerCase();
+  const fStatus = (document.getElementById('filter-status')||{value:''}).value;
+  const fPrio   = (document.getElementById('filter-priority')||{value:''}).value;
+  const fAssign = (document.getElementById('filter-assignee')||{value:''}).value;
+  const today   = new Date().toISOString().split('T')[0];
+
+  let tasks = Object.entries(allTasks).map(([id,t]) => ({id,...t}));
+  if (currentTab === 'mine')    tasks = tasks.filter(t => t.assignee === currentUser);
+  if (currentTab === 'overdue') tasks = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== 'done');
+  if (search)  tasks = tasks.filter(t => (t.title||'').toLowerCase().includes(search)||(t.description||'').toLowerCase().includes(search));
+  if (fStatus) tasks = tasks.filter(t => t.status === fStatus);
+  if (fPrio)   tasks = tasks.filter(t => t.priority === fPrio);
+  if (fAssign) tasks = tasks.filter(t => t.assignee === fAssign);
+
+  const priOrder = {high:0,medium:1,low:2};
+  tasks.sort((a,b) => {
+    if (a.status==='done'&&b.status!=='done') return 1;
+    if (b.status==='done'&&a.status!=='done') return -1;
+    const aO = a.dueDate&&a.dueDate<today&&a.status!=='done';
+    const bO = b.dueDate&&b.dueDate<today&&b.status!=='done';
+    if (aO&&!bO) return -1; if (!aO&&bO) return 1;
+    return (priOrder[a.priority]||1)-(priOrder[b.priority]||1);
+  });
+
+  // update assignee filter dropdown
+  const assignees = [...new Set(Object.values(allTasks).map(t=>t.assignee).filter(Boolean))];
+  const sel = document.getElementById('filter-assignee');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Assignees</option>' + assignees.map(a=>`<option value="${a}" ${a===cur?'selected':''}>${a}</option>`).join('');
+  }
+
+  const container = document.getElementById('tasks-container');
+  if (!container) return;
+  if (tasks.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">✅</div><h3>No tasks found</h3><p>Click "+ New Task" to add one.</p></div>`;
+    return;
+  }
+  container.innerHTML = `<div class="tasks-grid">${tasks.map(t=>renderTaskCard(t,today)).join('')}</div>`;
+}
+
+function renderTaskCard(t, today) {
+  const m = Object.values(allMembers).find(x => x.name === t.assignee) || { color:'#888' };
+  const isDone = t.status === 'done';
+  const isOverdue = t.dueDate && t.dueDate < today && !isDone;
+  const comments = t.comments ? Object.values(t.comments) : [];
+  const expanded = expandedTasks.has(t.id);
+  const statusLabel = {todo:'To Do',inprogress:'In Progress',done:'Done'}[t.status]||t.status;
+  const statusClass = {todo:'pill-todo',inprogress:'pill-inprogress',done:'pill-done'}[t.status]||'pill-todo';
+  const prioClass   = {high:'pill-high',medium:'pill-medium',low:'pill-low'}[t.priority]||'pill-medium';
+
+  let dueTxt = '';
+  if (t.dueDate) {
+    const d = new Date(t.dueDate + 'T00:00:00');
+    dueTxt = `<span class="due-date ${isOverdue?'overdue':''}">📅 ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}${isOverdue?' ⚠️ Overdue':''}</span>`;
+  }
+
+  let commentsHtml = '';
+  if (expanded) {
+    commentsHtml = `<div class="task-comments">
+      ${comments.sort((a,b)=>a.time-b.time).map(c => {
+        const cm = Object.values(allMembers).find(x=>x.name===c.author)||{color:'#888'};
+        return `<div class="comment">
+          <div class="avatar" style="background:${cm.color}">${initials(c.author)}</div>
+          <div class="comment-bubble">
+            <div class="comment-meta">${escHtml(c.author)} · ${new Date(c.time).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+            ${escHtml(c.text)}
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="comment-input-row">
+        <input type="text" class="comment-input" id="comment-input-${t.id}" placeholder="Add a comment..." onkeydown="if(event.key==='Enter') addComment('${t.id}')" />
+        <button class="btn-comment" onclick="addComment('${t.id}')">Send</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="task-card ${isDone?'done':''}" ondblclick="openTaskModal('${t.id}')" style="cursor:pointer">
+    <div class="task-header">
+      <div class="task-check ${isDone?'checked':''}" onclick="toggleStatus('${t.id}'); event.stopPropagation()"></div>
+      <div class="task-body">
+        <div class="task-title">${escHtml(t.title)}</div>
+        ${t.description?`<div style="font-size:13px;color:var(--muted);margin-bottom:5px">${escHtml(t.description)}</div>`:''}
+        ${t.notes?`<div style="font-size:13px;color:var(--text);background:#f8fafc;border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:6px 10px;margin-bottom:6px">📝 ${escHtml(t.notes)}</div>`:''}
+        <div class="task-meta">
+          <span class="pill ${prioClass}">${t.priority}</span>
+          <span class="pill ${statusClass}">${statusLabel}</span>
+          <div class="task-assignee">
+            <div class="avatar" style="background:${m.color}">${initials(t.assignee)}</div>
+            ${escHtml(t.assignee)}
+          </div>
+          ${dueTxt}
+          <span style="font-size:12px;color:var(--muted);cursor:pointer" onclick="toggleComments('${t.id}'); event.stopPropagation()">💬 ${comments.length}</span>
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn-icon" onclick="openTaskModal('${t.id}'); event.stopPropagation()">✏️</button>
+        <button class="btn-icon danger" onclick="deleteTask('${t.id}'); event.stopPropagation()">🗑️</button>
+      </div>
+    </div>
+    ${commentsHtml}
+  </div>`;
+}
+
+function toggleComments(id) {
+  expandedTasks.has(id) ? expandedTasks.delete(id) : expandedTasks.add(id);
+  renderTasks();
+}
+
+function updateStats() {
+  const tasks = Object.values(allTasks);
+  const today = new Date().toISOString().split('T')[0];
+  const total = tasks.length;
+  const done  = tasks.filter(t=>t.status==='done').length;
+  const inp   = tasks.filter(t=>t.status==='inprogress').length;
+  const over  = tasks.filter(t=>t.dueDate&&t.dueDate<today&&t.status!=='done').length;
+  const el = document.getElementById('stats-bar');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-icon">📋</div><div><div class="stat-label">Total</div><div class="stat-value">${total}</div></div></div>
+    <div class="stat-card"><div class="stat-icon">🔄</div><div><div class="stat-label">In Progress</div><div class="stat-value">${inp}</div></div></div>
+    <div class="stat-card"><div class="stat-icon">✅</div><div><div class="stat-label">Done</div><div class="stat-value">${done}</div></div></div>
+    <div class="stat-card"><div class="stat-icon">⚠️</div><div><div class="stat-label">Overdue</div><div class="stat-value" style="color:${over>0?'var(--danger)':'var(--navy)'}">${over}</div></div></div>`;
+}
+
+function updateBadges() {
+  const today = new Date().toISOString().split('T')[0];
+  const tasks = Object.values(allTasks);
+  const mine = tasks.filter(t=>t.assignee===currentUser&&t.status!=='done').length;
+  const over = tasks.filter(t=>t.dueDate&&t.dueDate<today&&t.status!=='done').length;
+  const mEl = document.getElementById('mine-count');
+  const oEl = document.getElementById('overdue-count');
+  if (mEl) { mEl.textContent = mine; mEl.style.display = mine>0?'inline-block':'none'; }
+  if (oEl) { oEl.textContent = over; oEl.style.display = over>0?'inline-block':'none'; }
+}
+
+function initials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  return parts.length >= 2 ? (parts[0][0]+parts[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+}
+
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
